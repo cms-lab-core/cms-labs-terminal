@@ -130,11 +130,11 @@ type workspaceIdentity struct {
 func decodeIdentity(value string) workspaceIdentity {
 	encoded, err := base64.RawURLEncoding.DecodeString(value)
 	if err != nil {
-		return workspaceIdentity{}
+		return workspaceIdentity{Username: value}
 	}
 	var result workspaceIdentity
 	if err = json.Unmarshal(encoded, &result); err != nil {
-		return workspaceIdentity{}
+		return workspaceIdentity{Username: value}
 	}
 	return result
 }

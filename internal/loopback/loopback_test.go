@@ -260,8 +260,8 @@ func TestClabgateIdentityIsDecodedWithoutLoggingTheToken(t *testing.T) {
 	if identity.Subject != "user-42" || identity.Username != "student" {
 		t.Fatalf("identity = %+v", identity)
 	}
-	if invalid := decodeIdentity("not base64!"); invalid != (workspaceIdentity{}) {
-		t.Fatalf("invalid identity = %+v, want empty", invalid)
+	if compact := decodeIdentity("student"); compact != (workspaceIdentity{Username: "student"}) {
+		t.Fatalf("compact identity = %+v, want username fallback", compact)
 	}
 }
 

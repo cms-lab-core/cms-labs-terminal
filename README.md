@@ -134,9 +134,12 @@ The terminal is not another OIDC client. CMS/Clabgate already knows the user and
 1. `session.open`/`topology.get` checks ownership and issues a short-lived workspace grant.
 2. Clabgate exchanges it for a session-scoped HttpOnly cookie.
 3. nginx runs `workspace-auth/verify` for ttyd HTTP and WebSocket requests.
-4. nginx overwrites `X-CMS-Identity` with the verified response header.
-5. `ttyd --auth-header X-CMS-Identity` rejects a direct request without that trusted header and exports
-   the value to the helper as `TTYD_USER` for attach/detach audit metadata.
+4. Clabgate returns the full `X-CMS-Identity` for Jupyter and a compact
+   `X-CMS-Terminal-Identity` for ttyd; nginx overwrites the browser-supplied terminal header with the
+   compact verified value. The separate value is required because ttyd currently rejects auth-header
+   values of 30 bytes or more.
+5. `ttyd --auth-header X-CMS-Identity` rejects a direct request without that trusted compact identity
+   and exports it to the helper as `TTYD_USER` for attach/detach audit metadata.
 
 Do not expose a target Service through an Ingress directly. The auth header is meaningful only when the
 terminal Service is reachable exclusively through the trusted proxy; production clusters should also

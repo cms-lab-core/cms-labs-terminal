@@ -97,6 +97,10 @@ targets:
     command: [/bin/ash, -l]
 ```
 
+`session.mode` and `session.command` are only defaults. Every target may override both values, so
+one topology can expose an SR Linux node through `sr_cli`, a Linux PC through `/bin/bash -l`, and an
+Alpine node through `/bin/ash -l` without changing the device images.
+
 Every target must be declared. A target may pin `namespace`, `pod` and `container`; otherwise its pod is
 resolved from the configured node/owner labels and its container from
 `kubectl.kubernetes.io/default-container`. Wildcard namespaces are rejected because this service is

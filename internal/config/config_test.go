@@ -72,6 +72,28 @@ func TestAttachSessionDefaultRejectsACommand(t *testing.T) {
 	}
 }
 
+func TestTargetsOverrideSessionCommandIndependently(t *testing.T) {
+	t.Parallel()
+	configuration := Config{
+		Access:  Access{Namespaces: []string{"lab-attempt"}},
+		Session: Session{Mode: string(ModeExec), Command: []string{"/bin/sh"}},
+		Targets: []Target{
+			{Name: "srl1", Port: 7681, Command: []string{"sr_cli"}},
+			{Name: "pc1", Port: 7682, Command: []string{"/bin/bash", "-l"}},
+			{Name: "alpine1", Port: 7683},
+		},
+	}
+	if err := configuration.Validate(); err != nil {
+		t.Fatalf("Validate: %s", err)
+	}
+	want := [][]string{{"sr_cli"}, {"/bin/bash", "-l"}, {"/bin/sh"}}
+	for index := range configuration.Targets {
+		if !slices.Equal(configuration.Targets[index].Command, want[index]) {
+			t.Fatalf("target %q command = %v, want %v", configuration.Targets[index].Name, configuration.Targets[index].Command, want[index])
+		}
+	}
+}
+
 func TestNamespaceLocalDeploymentRejectsWildcardAccess(t *testing.T) {
 	t.Parallel()
 	configuration := validConfig()

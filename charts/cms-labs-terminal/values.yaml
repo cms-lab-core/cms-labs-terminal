@@ -1,0 +1,78 @@
+image:
+  repository: ghcr.io/maintainer64/cms-labs-terminal
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+server:
+  address: 0.0.0.0
+  title: Network lab
+  authHeader: X-CMS-Identity
+  allowUnauthenticated: false
+  maxClients: 4
+  disableOriginCheck: false
+
+broker:
+  address: 127.0.0.1:17680
+  lease: 30m
+  reapInterval: 1m
+  scrollbackBytes: 1048576
+  history: 3
+
+access:
+  nodeLabel: c9s.run/topologyNode
+  ownerLabel: c9s.run/topologyOwner
+  # Empty means the Helm release namespace.
+  owner: ""
+
+session:
+  mode: exec
+  command: [/bin/sh]
+
+# Clabgate matches the Service name to the topology node. Each target therefore gets a Service named
+# <target>-terminal on port ttyd:7681, while target.port selects its listener in the one broker Pod.
+targets:
+  - name: r1
+    label: Router 1
+    port: 7681
+    mode: exec
+    command: [/bin/bash, -l]
+
+serviceAccount:
+  create: true
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    memory: 256Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+networkPolicy:
+  enabled: false
+  # Select the trusted CMS frontend/nginx proxy. Configure both selectors for your cluster.
+  namespaceSelector: {}
+  podSelector: {}

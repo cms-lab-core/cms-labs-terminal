@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["server", "broker", "access", "session", "targets"],
+  "properties": {
+    "server": {
+      "type": "object",
+      "required": ["address", "authHeader", "maxClients"],
+      "properties": {
+        "address": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "authHeader": { "type": "string", "minLength": 1 },
+        "allowUnauthenticated": { "type": "boolean" },
+        "maxClients": { "type": "integer", "minimum": 1 },
+        "disableOriginCheck": { "type": "boolean" }
+      }
+    },
+    "broker": {
+      "type": "object",
+      "required": ["address", "lease", "reapInterval", "scrollbackBytes", "history"],
+      "properties": {
+        "address": { "type": "string", "pattern": "^(localhost|127\\.0\\.0\\.1|\\[::1\\]):[0-9]+$" },
+        "lease": { "type": "string", "minLength": 2 },
+        "reapInterval": { "type": "string", "minLength": 2 },
+        "scrollbackBytes": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+        "history": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "access": {
+      "type": "object",
+      "required": ["nodeLabel"],
+      "properties": {
+        "nodeLabel": { "type": "string", "minLength": 1 },
+        "ownerLabel": { "type": "string" },
+        "owner": { "type": "string" }
+      }
+    },
+    "session": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["exec", "attach"] },
+        "command": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "port"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 54,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "label": { "type": "string" },
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "namespace": { "type": "string" },
+          "pod": { "type": "string" },
+          "container": { "type": "string" },
+          "mode": { "enum": ["exec", "attach"] },
+          "command": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

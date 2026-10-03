@@ -1,0 +1,56 @@
+{{- if not .Values.targets }}
+{{- fail "at least one terminal target is required" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cms-labs-terminal.fullname" . }}
+  labels:
+    {{- include "cms-labs-terminal.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    server:
+      address: {{ .Values.server.address | quote }}
+      title: {{ .Values.server.title | quote }}
+      authHeader: {{ .Values.server.authHeader | quote }}
+      allowUnauthenticated: {{ .Values.server.allowUnauthenticated }}
+      maxClients: {{ .Values.server.maxClients }}
+      disableOriginCheck: {{ .Values.server.disableOriginCheck }}
+    broker:
+      address: {{ .Values.broker.address | quote }}
+      lease: {{ .Values.broker.lease | quote }}
+      reapInterval: {{ .Values.broker.reapInterval | quote }}
+      scrollbackBytes: {{ int .Values.broker.scrollbackBytes }}
+      history: {{ .Values.broker.history }}
+    access:
+      namespaces:
+        - {{ .Release.Namespace | quote }}
+      nodeLabel: {{ .Values.access.nodeLabel | quote }}
+      ownerLabel: {{ .Values.access.ownerLabel | quote }}
+      owner: {{ default .Release.Namespace .Values.access.owner | quote }}
+    session:
+      mode: {{ .Values.session.mode | quote }}
+      command:
+        {{- toYaml .Values.session.command | nindent 8 }}
+    targets:
+      {{- range .Values.targets }}
+      - name: {{ required "targets[].name is required" .name | quote }}
+        label: {{ default .name .label | quote }}
+        port: {{ required "targets[].port is required" .port }}
+        {{- with .namespace }}
+        namespace: {{ . | quote }}
+        {{- end }}
+        {{- with .pod }}
+        pod: {{ . | quote }}
+        {{- end }}
+        {{- with .container }}
+        container: {{ . | quote }}
+        {{- end }}
+        {{- with .mode }}
+        mode: {{ . | quote }}
+        {{- end }}
+        {{- with .command }}
+        command:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}

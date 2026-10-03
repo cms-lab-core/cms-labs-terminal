@@ -1,0 +1,12 @@
+apiVersion: v2
+name: cms-labs-terminal
+description: Persistent namespace-local browser terminals for CMS Labs
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/maintainer64/cms-labs-terminal
+sources:
+  - https://github.com/maintainer64/cms-labs-terminal
+maintainers:
+  - name: maintainer64
+    url: https://github.com/maintainer64

@@ -1,0 +1,209 @@
+# Example generated once per lab namespace. Clabgate should substitute the namespace, owner and target
+# list while creating the rest of the lab. All target Services select the same broker Pod.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-example
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cms-labs-terminal
+  namespace: lab-example
+  labels:
+    app.kubernetes.io/name: cms-labs-terminal
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cms-labs-terminal
+  namespace: lab-example
+  labels:
+    app.kubernetes.io/name: cms-labs-terminal
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/attach"]
+    # WebSocket streaming uses GET and falls back to SPDY POST on older API servers.
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cms-labs-terminal
+  namespace: lab-example
+  labels:
+    app.kubernetes.io/name: cms-labs-terminal
+subjects:
+  - kind: ServiceAccount
+    name: cms-labs-terminal
+    namespace: lab-example
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cms-labs-terminal
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cms-labs-terminal
+  namespace: lab-example
+  labels:
+    app.kubernetes.io/name: cms-labs-terminal
+data:
+  config.yaml: |
+    server:
+      address: 0.0.0.0
+      title: Network lab
+      # Clabgate validates its scoped workspace cookie. nginx overwrites this header with the
+      # identity returned by that validation; ttyd rejects requests where it is absent.
+      authHeader: X-CMS-Identity
+      maxClients: 4
+
+    broker:
+      # Never expose this port through a Service. It carries raw terminal input and output between
+      # ttyd's per-WebSocket child and the long-lived broker in the same container.
+      address: 127.0.0.1:17680
+      lease: 30m
+      reapInterval: 1m
+      scrollbackBytes: 1048576
+      history: 3
+
+    access:
+      namespaces: [lab-example]
+      nodeLabel: c9s.run/topologyNode
+      ownerLabel: c9s.run/topologyOwner
+      owner: lab-example
+
+    session:
+      mode: exec
+      command: [/bin/sh]
+
+    targets:
+      # Each target gets one ttyd listener, but all listeners attach to the same in-process broker.
+      # Use [sr_cli] for SR Linux, [/bin/bash, -l] for bash, or [/bin/ash, -l] for Alpine.
+      - name: r1
+        label: Router 1
+        port: 7681
+        mode: exec
+        command: [/bin/bash, -l]
+      - name: s1
+        label: Switch 1
+        port: 7682
+        mode: exec
+        command: [/bin/ash, -l]
+      # mode: attach is also supported. It joins the container's existing process and therefore has
+      # no command; the container must have stdin and tty enabled in its Pod spec.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms-labs-terminal
+  namespace: lab-example
+  labels:
+    app.kubernetes.io/name: cms-labs-terminal
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cms-labs-terminal
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cms-labs-terminal
+    spec:
+      serviceAccountName: cms-labs-terminal
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: terminal
+          image: ghcr.io/cms-lab-core/cms-labs-terminal:latest
+          imagePullPolicy: IfNotPresent
+          args: [serve]
+          env:
+            - name: CMS_LABS_TERMINAL_CONFIG
+              value: /etc/cms-labs-terminal/config.yaml
+          ports:
+            - name: r1
+              containerPort: 7681
+            - name: s1
+              containerPort: 7682
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cms-labs-terminal
+              readOnly: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            tcpSocket:
+              port: r1
+            initialDelaySeconds: 1
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: r1
+            initialDelaySeconds: 5
+            periodSeconds: 20
+      volumes:
+        - name: config
+          configMap:
+            name: cms-labs-terminal
+---
+# Keep one Service per topology node for compatibility with the current topology.get response and
+# frontend matching rule. Service port is always named ttyd and exposed as 7681; targetPort selects
+# the corresponding listener in the one terminal Pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: r1-terminal
+  namespace: lab-example
+  labels:
+    app.kubernetes.io/name: cms-labs-terminal
+  annotations:
+    cms-labs.io/terminal-target: r1
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cms-labs-terminal
+  ports:
+    - name: ttyd
+      port: 7681
+      targetPort: r1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s1-terminal
+  namespace: lab-example
+  labels:
+    app.kubernetes.io/name: cms-labs-terminal
+  annotations:
+    cms-labs.io/terminal-target: s1
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cms-labs-terminal
+  ports:
+    - name: ttyd
+      port: 7681
+      targetPort: s1

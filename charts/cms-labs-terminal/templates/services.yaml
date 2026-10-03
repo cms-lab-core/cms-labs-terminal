@@ -1,0 +1,22 @@
+{{- range $index, $target := .Values.targets }}
+{{- if $index }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-terminal" $target.name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "cms-labs-terminal.labels" $ | nindent 4 }}
+  annotations:
+    cms-labs.io/terminal-target: {{ $target.name | quote }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cms-labs-terminal.selectorLabels" $ | nindent 4 }}
+  ports:
+    - name: ttyd
+      port: 7681
+      targetPort: {{ printf "terminal-%d" $index }}
+      protocol: TCP
+{{- end }}

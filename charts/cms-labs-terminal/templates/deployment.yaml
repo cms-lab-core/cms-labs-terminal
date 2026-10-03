@@ -1,0 +1,83 @@
+{{- $first := index .Values.targets 0 }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cms-labs-terminal.fullname" . }}
+  labels:
+    {{- include "cms-labs-terminal.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "cms-labs-terminal.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cms-labs-terminal.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "cms-labs-terminal.serviceAccountName" . }}
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: terminal
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [serve]
+          env:
+            - name: CMS_LABS_TERMINAL_CONFIG
+              value: /etc/cms-labs-terminal/config.yaml
+          ports:
+            {{- range $index, $target := .Values.targets }}
+            - name: {{ printf "terminal-%d" $index }}
+              containerPort: {{ $target.port }}
+              protocol: TCP
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cms-labs-terminal
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ $first.port }}
+            initialDelaySeconds: 1
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: {{ $first.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 20
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "cms-labs-terminal.fullname" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

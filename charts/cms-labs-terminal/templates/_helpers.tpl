@@ -1,0 +1,32 @@
+{{- define "cms-labs-terminal.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "cms-labs-terminal.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name (include "cms-labs-terminal.name" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+
+{{- define "cms-labs-terminal.labels" -}}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
+app.kubernetes.io/name: {{ include "cms-labs-terminal.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{- define "cms-labs-terminal.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "cms-labs-terminal.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "cms-labs-terminal.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "cms-labs-terminal.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- required "serviceAccount.name is required when serviceAccount.create=false" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}

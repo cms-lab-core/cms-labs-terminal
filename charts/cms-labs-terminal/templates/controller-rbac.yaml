@@ -1,0 +1,43 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cms-labs-terminal.fullname" . }}-controller
+  labels:
+    {{- include "cms-labs-terminal.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "create", "update", "patch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "create", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cms-labs-terminal.fullname" . }}-controller
+  labels:
+    {{- include "cms-labs-terminal.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cms-labs-terminal.fullname" . }}-controller
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cms-labs-terminal.fullname" . }}-controller

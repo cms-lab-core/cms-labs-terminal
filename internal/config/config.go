@@ -105,14 +105,25 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("reading %s: %w", path, err)
 	}
-	var configuration Config
-	decoder := yaml.NewDecoder(strings.NewReader(string(raw)))
-	decoder.KnownFields(true)
-	if err = decoder.Decode(&configuration); err != nil {
+	configuration, err := Decode(raw)
+	if err != nil {
 		return Config{}, fmt.Errorf("parsing %s: %w", path, err)
 	}
 	if err = configuration.Validate(); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return configuration, nil
+}
+
+// Decode parses a strict terminal configuration without applying runtime-specific defaults. It is
+// used by the cluster controller, which injects the owning namespace and listener ports before
+// calling Validate.
+func Decode(raw []byte) (Config, error) {
+	var configuration Config
+	decoder := yaml.NewDecoder(strings.NewReader(string(raw)))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&configuration); err != nil {
+		return Config{}, err
 	}
 	return configuration, nil
 }
@@ -130,6 +141,9 @@ func (c *Config) Validate() error {
 	if c.Server.MaxClients <= 0 {
 		c.Server.MaxClients = DefaultMaxClients
 	}
+	if c.Server.MaxClients > 64 {
+		return fmt.Errorf("%w: server.maxClients cannot exceed 64", ErrInvalid)
+	}
 
 	if c.Broker.Address == "" {
 		c.Broker.Address = DefaultBrokerAddress
@@ -139,6 +153,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Broker.Lease.Duration <= 0 {
 		c.Broker.Lease.Duration = 30 * time.Minute
+	}
+	if c.Broker.Lease.Duration > 24*time.Hour {
+		return fmt.Errorf("%w: broker.lease cannot exceed 24h", ErrInvalid)
 	}
 	if c.Broker.ReapInterval.Duration <= 0 {
 		c.Broker.ReapInterval.Duration = time.Minute
@@ -151,6 +168,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Broker.History <= 0 {
 		c.Broker.History = DefaultHistory
+	}
+	if c.Broker.History > 100 {
+		return fmt.Errorf("%w: broker.history cannot exceed 100", ErrInvalid)
 	}
 
 	if len(c.Access.Namespaces) == 0 {
@@ -181,6 +201,9 @@ func (c *Config) Validate() error {
 
 	if len(c.Targets) == 0 {
 		return fmt.Errorf("%w: at least one target is required", ErrInvalid)
+	}
+	if len(c.Targets) > 64 {
+		return fmt.Errorf("%w: targets cannot contain more than 64 entries", ErrInvalid)
 	}
 	names := make(map[string]struct{}, len(c.Targets))
 	ports := make(map[int]string, len(c.Targets))

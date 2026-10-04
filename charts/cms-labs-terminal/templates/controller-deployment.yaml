@@ -1,0 +1,49 @@
+{{- $image := printf "%s:%s" .Values.image.repository (default .Chart.AppVersion .Values.image.tag) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cms-labs-terminal.fullname" . }}-controller
+  labels:
+    {{- include "cms-labs-terminal.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "cms-labs-terminal.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        {{- include "cms-labs-terminal.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: {{ include "cms-labs-terminal.fullname" . }}-controller
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: controller
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - controller
+            - --runtime-image={{ $image }}
+            - --runtime-image-pull-policy={{ .Values.image.pullPolicy }}
+            - --reconcile-interval={{ .Values.controller.reconcileInterval }}
+            - --source-name={{ .Values.controller.sourceName }}
+            - --source-label={{ .Values.controller.sourceLabel }}
+            - --managed-namespace-label={{ .Values.controller.managedNamespaceLabel }}
+            - --managed-namespace-value={{ .Values.controller.managedNamespaceValue }}
+            {{- with .Values.controller.proxyNamespace }}
+            - --proxy-namespace={{ . }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}

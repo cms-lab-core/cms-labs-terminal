@@ -55,6 +55,11 @@ remains in `client-go`.
 
 ## Configuration
 
+The complete configuration below is accepted by standalone `serve` mode. In controller mode,
+server binding/authentication, broker limits, namespace access and listener ports are operator-owned
+and replaced with safe defaults. A lab declaration controls the target names, optional pod/container,
+`mode` and `command` only.
+
 ```yaml
 server:
   address: 0.0.0.0
@@ -115,17 +120,45 @@ one ClusterIP Service per target with external port name `ttyd`, port `7681`, an
 at that target's listener. All Services select the same terminal Pod. See
 [`deploy/manifests.yaml`](deploy/manifests.yaml).
 
-The chart is published as OCI together with tagged releases:
+The OCI chart installs one controller for the cluster:
 
 ```sh
 helm upgrade --install terminal \
   oci://ghcr.io/cms-lab-core/charts/cms-labs-terminal \
-  --namespace lab-00000000 \
-  --set-json 'targets=[{"name":"srl1","port":7681,"mode":"exec","command":["sr_cli"]}]'
+  --namespace cms-labs-system --create-namespace \
+  --set controller.proxyNamespace=cms-labs-system
 ```
 
-In production, also enable `networkPolicy` and set its namespace/pod selectors to the trusted CMS
-frontend proxy. Clabgate can render the same target list while it creates the attempt namespace.
+Each lab then carries only this declaration:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cms-labs-terminal-config
+  namespace: $NAME
+  labels:
+    cms-labs.io/terminal-config: "true"
+data:
+  config.yaml: |-
+    targets:
+      - name: srl1
+        mode: exec
+        command: [sr_cli]
+      - name: linux1
+        mode: exec
+        command: [/bin/bash, -l]
+```
+
+Clabgate applies the ConfigMap but does not parse terminal configuration. The controller accepts it
+only in `app.kubernetes.io/managed-by=clabgate` namespaces, injects the namespace ownership boundary
+and creates the broker Deployment, namespaced RBAC, NetworkPolicy and `<target>-terminal` Services.
+Updating the chart updates every future/reconciled lab runtime; task repositories do not copy image,
+RBAC or networking manifests.
+
+The chart intentionally installs only the controller. For standalone runtime debugging, run
+`cms-labs-terminal serve --config ./config.yaml` directly instead of maintaining a second Helm
+deployment contract.
 
 ## Authentication with current Clabgate
 

@@ -1,9 +1,9 @@
 apiVersion: v2
 name: cms-labs-terminal
-description: Persistent namespace-local browser terminals for CMS Labs
+description: Cluster controller and persistent namespace-local browser terminals for CMS Labs
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 1.0.0
+appVersion: "1.0.0"
 home: https://github.com/cms-lab-core/cms-labs-terminal
 sources:
   - https://github.com/cms-lab-core/cms-labs-terminal

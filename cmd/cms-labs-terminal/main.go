@@ -14,12 +14,14 @@ import (
 	"syscall"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/cms-lab-core/cms-labs-terminal/internal/broker"
 	"github.com/cms-lab-core/cms-labs-terminal/internal/config"
+	terminalcontroller "github.com/cms-lab-core/cms-labs-terminal/internal/controller"
 	"github.com/cms-lab-core/cms-labs-terminal/internal/kubeexec"
 	"github.com/cms-lab-core/cms-labs-terminal/internal/loopback"
 	"github.com/cms-lab-core/cms-labs-terminal/internal/planner"
@@ -55,16 +57,58 @@ func main() {
 		err = resolve(arguments)
 	case "diagnose":
 		err = diagnose()
+	case "controller":
+		err = runController(arguments)
 	case "version", "--version", "-version":
 		fmt.Printf("cms-labs-terminal %s\n", version)
 		return
 	default:
-		err = fmt.Errorf("unknown mode %q (use serve, connect, resolve, diagnose or version)", mode)
+		err = fmt.Errorf("unknown mode %q (use serve, controller, connect, resolve, diagnose or version)", mode)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cms-labs-terminal: %s\n", err)
 		os.Exit(1)
 	}
+}
+
+func runController(arguments []string) error {
+	flags := flag.NewFlagSet("controller", flag.ContinueOnError)
+	image := flags.String("runtime-image", "", "terminal runtime image created in lab namespaces")
+	pullPolicy := flags.String("runtime-image-pull-policy", string(corev1.PullIfNotPresent), "terminal runtime image pull policy")
+	interval := flags.Duration("reconcile-interval", 15*time.Second, "full reconciliation interval")
+	sourceName := flags.String("source-name", terminalcontroller.DefaultSourceName, "per-lab configuration ConfigMap name")
+	sourceLabel := flags.String("source-label", terminalcontroller.DefaultSourceLabel, "per-lab configuration label")
+	managedLabel := flags.String("managed-namespace-label", terminalcontroller.DefaultManagedNamespaceLabel, "required lab namespace label")
+	managedValue := flags.String("managed-namespace-value", terminalcontroller.DefaultManagedNamespaceValue, "required lab namespace label value")
+	proxyNamespace := flags.String("proxy-namespace", terminalcontroller.DefaultProxyNamespace, "namespace allowed to reach generated terminal Services")
+	verbose := flags.Bool("verbose", false, "debug logging")
+	if err := flags.Parse(arguments); err != nil {
+		return err
+	}
+	if *image == "" {
+		return errors.New("--runtime-image is required")
+	}
+	level := slog.LevelInfo
+	if *verbose {
+		level = slog.LevelDebug
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	client, _, err := clusterClient()
+	if err != nil {
+		return err
+	}
+	operator, err := terminalcontroller.New(client, terminalcontroller.Options{
+		Image: *image, ImagePullPolicy: corev1.PullPolicy(*pullPolicy), ReconcileInterval: *interval,
+		SourceName: *sourceName, SourceLabel: *sourceLabel,
+		ManagedNamespaceLabel: *managedLabel, ManagedNamespaceValue: *managedValue,
+		ProxyNamespace: *proxyNamespace,
+	}, logger)
+	if err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	return operator.Run(ctx)
 }
 
 func serve(arguments []string) error {

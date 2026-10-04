@@ -22,11 +22,3 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ include "cms-labs-terminal.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
-
-{{- define "cms-labs-terminal.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "cms-labs-terminal.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- required "serviceAccount.name is required when serviceAccount.create=false" .Values.serviceAccount.name }}
-{{- end }}
-{{- end }}

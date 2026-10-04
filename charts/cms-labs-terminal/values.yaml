@@ -7,52 +7,19 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-server:
-  address: 0.0.0.0
-  title: Network lab
-  authHeader: X-CMS-Identity
-  allowUnauthenticated: false
-  maxClients: 4
-  disableOriginCheck: false
-
-broker:
-  address: 127.0.0.1:17680
-  lease: 30m
-  reapInterval: 1m
-  scrollbackBytes: 1048576
-  history: 3
-
-access:
-  nodeLabel: c9s.run/topologyNode
-  ownerLabel: c9s.run/topologyOwner
-  # Empty means the Helm release namespace.
-  owner: ""
-
-session:
-  mode: exec
-  command: [/bin/sh]
-
-# Clabgate matches the Service name to the topology node. Each target therefore gets a Service named
-# <target>-terminal on port ttyd:7681, while target.port selects its listener in the one broker Pod.
-targets:
-  - name: r1
-    label: Router 1
-    port: 7681
-    mode: exec
-    command: [/bin/bash, -l]
-
-serviceAccount:
-  create: true
-  name: ""
-
-podAnnotations: {}
-podLabels: {}
-resources:
-  requests:
-    cpu: 25m
-    memory: 32Mi
-  limits:
-    memory: 256Mi
+controller:
+  reconcileInterval: 15s
+  sourceName: cms-labs-terminal-config
+  sourceLabel: cms-labs.io/terminal-config
+  managedNamespaceLabel: app.kubernetes.io/managed-by
+  managedNamespaceValue: clabgate
+  proxyNamespace: cms-labs-system
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
 
 podSecurityContext:
   runAsNonRoot: true
@@ -66,13 +33,3 @@ securityContext:
   readOnlyRootFilesystem: true
   capabilities:
     drop: [ALL]
-
-nodeSelector: {}
-tolerations: []
-affinity: {}
-
-networkPolicy:
-  enabled: false
-  # Select the trusted CMS frontend/nginx proxy. Configure both selectors for your cluster.
-  namespaceSelector: {}
-  podSelector: {}

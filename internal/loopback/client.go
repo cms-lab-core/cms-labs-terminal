@@ -34,9 +34,6 @@ func (c *Client) Run(ctx context.Context) error {
 	if c.Output == nil {
 		c.Output = os.Stdout
 	}
-	if c.FD == 0 {
-		c.FD = int(os.Stdin.Fd()) //nolint:gosec // stdin is an OS-assigned process descriptor and fits ioctl's int API.
-	}
 	if c.HTTP == nil {
 		c.HTTP = &http.Client{Transport: &http.Transport{DisableCompression: true}}
 	}

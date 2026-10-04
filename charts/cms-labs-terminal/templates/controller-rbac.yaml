@@ -17,6 +17,15 @@ rules:
   - apiGroups: [""]
     resources: ["services"]
     verbs: ["get", "list", "create", "update", "patch", "delete"]
+  # The controller creates a namespace Role for the runtime broker. Kubernetes
+  # only permits that delegation when the controller already holds the same
+  # bounded permissions itself.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/attach"]
+    verbs: ["get", "create"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "create", "update", "patch"]
